@@ -13,12 +13,18 @@ local function Connection()
   local udp = socket.udp()
   udp:settimeout(0)
   local c = {udp = udp}
-  function c:connect(ip, port, login, password)
+  function c:connect(ip, port)
     udp:setpeername(ip,port)
-    udp:send(chr(server_events.join)..bitser.dumps{login, qhash(password or '')})
-    c.lastRefresh = 0
-    c.tmp = {}
-    c.player = {
+  end
+  function c:join(login, password)
+    local phash
+    if password then
+      phash = qhash(password)
+    end
+    self.udp:send(chr(server_events.join)..bitser.dumps{login, phash})
+    self.lastRefresh = 0
+    self.tmp = {}
+    self.player = {
       x = love.math.random(0,100), y = love.math.random(0,100),
       px = math.huge, py = math.huge
     }
@@ -110,8 +116,11 @@ function love.load(arg)
     end
   end
   conn = Connection()
-  if ip and port and user and pass then
-    conn:connect(ip,port,user,pass)
+  if ip and port then
+    conn:connect(ip,port)
+  end
+  if user then
+    conn:join(user,pass)
   end
 end
 

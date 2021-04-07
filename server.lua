@@ -160,7 +160,6 @@ while true do
         chr(client_events.pong)..emptyTable, 
         ip, port
       )
-      --do nothing
     end
     local p = players[td[1]]
     if p then
