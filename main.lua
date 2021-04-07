@@ -1,0 +1,145 @@
+local bitser = require'lib.bitser'
+local socket = require'socket'
+require'common'
+
+local chr = string.char
+
+local function kickmsg(reason)
+  if reason=='disconnected' then return end
+  love.window.showMessageBox("Kicked", "Reason: "..(reason or 'uknown'), "error", true)
+end
+
+local function Connection()
+  local udp = socket.udp()
+  udp:settimeout(0)
+  local c = {udp = udp}
+  function c:connect(ip, port, login, password)
+    udp:setpeername(ip,port)
+    udp:send(chr(server_events.join)..bitser.dumps{login, qhash(password or '')})
+    c.lastRefresh = 0
+    c.tmp = {}
+    c.player = {
+      x = love.math.random(0,100), y = love.math.random(0,100),
+      px = math.huge, py = math.huge
+    }
+  end
+  function c:disconnect()
+    self.udp:send(chr(server_events.disconnect)..bitser.dumps{self.token})
+  end
+  function c:ping()
+    self.udp:send(chr(server_events.ping)..bitser.dumps{self.token})
+  end
+  function c:requestPlayerData()
+    self.udp:send(chr(server_events.getPlayerData)..bitser.dumps{self.token})
+  end
+  function c:move()
+    self.udp:send(chr(server_events.move)..bitser.dumps{self.token,self.player.x,self.player.y})
+  end
+  function c:isReady()
+    return self.connected and type(self.playerData)=='table'
+  end
+  function c:update(dt)
+    local data = self.udp:receive()
+    if data then
+      local e,t = data:byte(1),bitser.loads(data:sub(2,#data))
+      if e==client_events.token then
+        local ok = t[1]
+        self.connected = ok
+        if ok then
+          self.token = t[2]
+          self.publicID = t[3]
+          self:requestPlayerData()
+        else
+          self.fail = t[2]
+          kickmsg(t[2])
+        end
+      elseif e==client_events.playerData then
+        self.playerData = bitser.loads(t[1])
+      elseif e==client_events.updatePlayer then
+        if self.playerData then
+          self.playerData[t.ptk] = t
+        end
+      elseif e==client_events.kicked then
+        self.connected = false
+        kickmsg(t[1])
+      elseif e==client_events.ping then
+        self.udp:send(chr(server_events.pong)..bitser.dumps{self.token})
+      elseif e==client_events.pong then
+        self.lastRefresh = 0
+        self.tmp.pinging = false
+      elseif e==client_events.playerLeft then
+        self.playerData[t[1]] = nil
+      end
+    end
+    if self:isReady() then
+      --send movement
+      local p = self.player
+      if p.x~=p.px or p.y~=p.py then
+        p.px = p.x 
+        p.py = p.y
+        c:move()
+      end
+      --refresh/check timeout
+      self.lastRefresh = self.lastRefresh + dt
+      if self.tmp.pinging then
+        if self.lastRefresh > timeout then
+          self.connected = false
+          kickmsg('Connection lost (timeout)')
+        end
+      elseif self.lastRefresh > timeout/2 then
+        self.tmp.pinging = true
+        self:ping()
+      end
+    end
+  end
+  return c
+end
+
+function love.load(arg)
+  local ip,port,user,pass
+  for i,v in ipairs(arg) do
+    local t = split(v,'=')
+    if t[1] == '--connect' then
+      local a = split(t[2],':')
+      ip = a[1]
+      port = tonumber(a[2])
+    elseif t[1] == '--user' then
+      user = t[2]
+    elseif t[1] == '--pass' then
+      pass = t[2]
+    end
+  end
+  conn = Connection()
+  if ip and port and user and pass then
+    conn:connect(ip,port,user,pass)
+  end
+end
+
+function love.update(dt)
+  conn:update(dt)
+  if conn:isReady() then
+    local p = conn.player
+    local d = love.keyboard.isDown
+    if d'right' or d'd' then p.x = p.x+1 end
+    if    d'up' or d'w' then p.y = p.y-1 end
+    if  d'left' or d'a' then p.x = p.x-1 end
+    if  d'down' or d's' then p.y = p.y+1 end
+  end
+end
+
+function love.draw()
+  love.graphics.setColor(1,1,1)
+  if conn:isReady() then
+    for i,v in pairs(conn.playerData) do
+      love.graphics.rectangle('fill',v.pos.x,v.pos.y,30,30)
+    end
+    love.graphics.setColor(1,0,0)
+    love.graphics.rectangle('fill',conn.player.x,conn.player.y,30,30)
+  end
+end
+
+function love.quit(r)
+  if conn and conn.connected then
+    conn:disconnect()
+  end
+end
