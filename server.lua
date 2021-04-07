@@ -81,10 +81,10 @@ local function kickPlayer(token, reason)
       end
     end
     players[token] = nil
-    print('kicked player!')
+    print('Player kicked: '..p.name..' Reason: '..(reason or 'none'))
     return true
   else
-    print('player is not on the server :<')
+    print('Unable to kick the player: '..p.name)
     return false
   end
 end
@@ -98,7 +98,7 @@ while true do
   data, ip, port = udp:receivefrom()
   if type(data)=='string' and #data>0 then
     local ev,td = data:byte(1),bitser.loads(data:sub(2,#data))
-    print(ev)
+    --print(ev)
     if ev==events.join then
       local name,passwordHash = unpack(td)
       local ok,reason = true,nil
@@ -114,11 +114,11 @@ while true do
           end
         end
         if isOnServer then
-          ok,reason = false,'player already on server'
+          ok,reason = false,'Player already on server'
         elseif conf.auth.doAuth then
           --verify password
           if not(type(passwordHash)=='number') or passwordHash<0 then
-            ok,reason = false, 'invalid password'
+            ok,reason = false, 'Invalid password'
           end
           --read users file
           local f = io.open(conf.auth.file, 'rb')
@@ -127,9 +127,9 @@ while true do
           local users = json.decode(d)
           --check username/password
           if not(users[name]) then
-            ok,reason = false, 'invalid username'
+            ok,reason = false, 'Invalid username'
           elseif not(users[name] == passwordHash) then
-            ok,reason = false, 'wrong password'
+            ok,reason = false, 'Wrong password'
           end
         end
       end
@@ -147,10 +147,10 @@ while true do
           name = td[1]
         }
         resp = resp..bitser.dumps{true, tk, ptk} 
-        print('player joined: ', name) --table.concat({tk:byte(1,#tk)},' ')
+        print('Player joined: ', name) --table.concat({tk:byte(1,#tk)},' ')
       else
         resp = resp..bitser.dumps{false, reason}
-        print('failed join att ('..reason..')')
+        print('Player login failed: '..reason)
       end
       udp:sendto(resp, ip, port)
     elseif ev==events.move then
