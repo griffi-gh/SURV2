@@ -36,7 +36,8 @@ local chr = string.char
 local function getPublicPlayerData(v)
   return {
     pos = { x = v.pos.x, y = v.pos.y },
-    ptk = v.ptk
+    ptk = v.ptk,
+    name = v.name
   }
 end
 
@@ -81,7 +82,7 @@ local function kickPlayer(token, reason)
       end
     end
     players[token] = nil
-    print('Player kicked: '..p.name..' Reason: '..(reason or 'none'))
+    print('Player kicked: '..p.name, 'Reason: '..(reason or 'none'))
     return true
   else
     print('Unable to kick the player: '..p.name)
@@ -92,6 +93,8 @@ end
 local function verifyString(s, min, max)
   return type(s)=='string' and #s>=min and #s<=max
 end
+
+print('SURV2 Server started!')
 
 while true do
   local clk = os.clock()

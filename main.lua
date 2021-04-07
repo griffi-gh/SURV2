@@ -25,8 +25,9 @@ local function Connection()
     self.lastRefresh = 0
     self.tmp = {}
     self.player = {
-      x = love.math.random(0,100), y = love.math.random(0,100),
-      px = math.huge, py = math.huge
+      x = 100, y = 100,
+      px = math.huge, py = math.huge,
+      name = login
     }
   end
   function c:disconnect()
@@ -129,21 +130,29 @@ function love.update(dt)
   if conn:isReady() then
     local p = conn.player
     local d = love.keyboard.isDown
-    if d'right' or d'd' then p.x = p.x+1 end
-    if    d'up' or d'w' then p.y = p.y-1 end
-    if  d'left' or d'a' then p.x = p.x-1 end
-    if  d'down' or d's' then p.y = p.y+1 end
+    local spd = 100
+    if    d'up' or d'w' then p.y = p.y-spd*dt end
+    if  d'left' or d'a' then p.x = p.x-spd*dt end
+    if  d'down' or d's' then p.y = p.y+spd*dt end
+    if d'right' or d'd' then p.x = p.x+spd*dt end
   end
 end
 
+local function renderPlayer(x,y,n)
+  local g = love.graphics
+  g.print(n,math.floor(x),math.floor(y-18))
+  g.rectangle('fill',x,y,30,30)
+end
+
 function love.draw()
-  love.graphics.setColor(1,1,1)
+  local g = love.graphics
   if conn:isReady() then
     for i,v in pairs(conn.playerData) do
-      love.graphics.rectangle('fill',v.pos.x,v.pos.y,30,30)
+      g.setColor(1,1,1)
+      renderPlayer(v.pos.x,v.pos.y,v.name)
     end
-    love.graphics.setColor(1,0,0)
-    love.graphics.rectangle('fill',conn.player.x,conn.player.y,30,30)
+    g.setColor(1,0,0)
+    renderPlayer(conn.player.x,conn.player.y,conn.player.name)
   end
 end
 
