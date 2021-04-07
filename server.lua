@@ -96,27 +96,41 @@ end
 while true do
   local clk = os.clock()
   data, ip, port = udp:receivefrom()
-  if data then
+  if type(data)=='string' and #data>0 then
     local ev,td = data:byte(1),bitser.loads(data:sub(2,#data))
     print(ev)
     if ev==events.join then
       local name,passwordHash = unpack(td)
       local ok,reason = true,nil
+      --verify nickname
       if not verifyString(name, 3, 30) then
         ok,reason = false, 'invalid nickname'
-      end
-      if conf.auth.doAuth then
-        if not(type(passwordHash)=='number') or passwordHash<0 then
-          ok,reason = false, 'invalid password'
+      else
+        local isOnServer = false
+        for i,v in pairs(players) do
+          if v.name==name then
+            isOnServer = true
+            break
+          end
         end
-        local f = io.open(conf.auth.file, 'rb')
-        local d = f:read('*a')
-        f:close()
-        local users = json.decode(d)
-        if not(users[name]) then
-          ok,reason = false, 'invalid username'
-        elseif not(users[name] == passwordHash) then
-          ok,reason = false, 'wrong password'
+        if isOnServer then
+          ok,reason = false,'player already on server'
+        elseif conf.auth.doAuth then
+          --verify password
+          if not(type(passwordHash)=='number') or passwordHash<0 then
+            ok,reason = false, 'invalid password'
+          end
+          --read users file
+          local f = io.open(conf.auth.file, 'rb')
+          local d = f:read('*a')
+          f:close()
+          local users = json.decode(d)
+          --check username/password
+          if not(users[name]) then
+            ok,reason = false, 'invalid username'
+          elseif not(users[name] == passwordHash) then
+            ok,reason = false, 'wrong password'
+          end
         end
       end
       -- (true, token, pubicID) or (false, reason)
@@ -136,7 +150,7 @@ while true do
         print('player joined: ', name) --table.concat({tk:byte(1,#tk)},' ')
       else
         resp = resp..bitser.dumps{false, reason}
-        print('failed join att')
+        print('failed join att ('..reason..')')
       end
       udp:sendto(resp, ip, port)
     elseif ev==events.move then

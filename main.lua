@@ -46,7 +46,7 @@ local function Connection()
   end
   function c:update(dt)
     local data = self.udp:receive()
-    if data then
+    if type(data)=='string' and #data>0 then
       local e,t = data:byte(1),bitser.loads(data:sub(2,#data))
       if e==client_events.token then
         local ok = t[1]
@@ -118,9 +118,9 @@ function love.load(arg)
   conn = Connection()
   if ip and port then
     conn:connect(ip,port)
-  end
-  if user then
-    conn:join(user,pass)
+    if user then
+      conn:join(user,pass)
+    end
   end
 end
 
